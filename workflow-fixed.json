@@ -1,0 +1,739 @@
+{
+  "name": "18042 L2-B 修复版(hardcode)",
+  "id": "Mock18042FixedB",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "x-18042-wa-in",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-x-18042-wa-in-post",
+      "name": "x-18042-wa-in",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "mock18042-x-18042-wa-in-post"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nlet phone = '';\nlet message = '';\n\ntry {\n  const entry = body.entry?.[0];\n  const changes = entry?.changes?.[0];\n  const value = changes?.value;\n  const msg = value?.messages?.[0];\n  \n  phone = msg?.from?.trim() || '';\n  message = msg?.text?.body?.toLowerCase().trim() || '';\n} catch(e) {\n  phone = '';\n  message = '';\n}\n\nreturn [{ json: { phone, message, channel: 'whatsapp', chat_id: phone } }];\n"
+      },
+      "id": "c2-Extract-WhatsApp-Message",
+      "name": "Extract WhatsApp Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.phone }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "if2-Check-WhatsApp-Message-Validity",
+      "name": "Check WhatsApp Message Validity",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nconst inData = $input.first().json;\nlet rows = [];\ntry { rows = JSON.parse(fs.readFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/clients-fix.json', 'utf8')); } catch (e) { rows = []; }\nconst key = inData.phone;\nconst hit = rows.find(r => r.phone && r.phone === key);\nif (hit) return [{ json: hit }];\nreturn [{ json: { phone: inData.phone || '', status: '' } }];\n"
+      },
+      "id": "c2-Retrieve-Unpaid-Clients",
+      "name": "Retrieve Unpaid Clients",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        -30
+      ]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "13390e2c-f938-467f-9d0b-79c96e4a44b5",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.status }}",
+              "rightValue": ""
+            }
+          ]
+        }
+      },
+      "id": "if2-pending",
+      "name": "Check Payment Status Pending",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        930,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d26fc1be-9c89-40d0-ac60-37a037c946f9",
+              "name": "phone",
+              "type": "string",
+              "value": "={{ $('Extract WhatsApp Message').item.json.phone.trim() }}"
+            },
+            {
+              "id": "7b25b184-0179-4fa8-b5fd-09e3239661cf",
+              "name": "channel",
+              "type": "string",
+              "value": "=whatsapp"
+            },
+            {
+              "id": "1ff0d42c-0baf-4fd1-be23-7cb041b7c56b",
+              "name": "chat_id",
+              "type": "string",
+              "value": "={{ $('Extract WhatsApp Message').item.json.chat_id.trim() }}"
+            },
+            {
+              "id": "c6e3a014-a47a-488a-8c9f-0cc42d02d38c",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "id": "f5f821a9-4e0f-4cc1-a7fd-fe344bf07405",
+              "name": "status",
+              "type": "string",
+              "value": "=sent_link"
+            }
+          ]
+        }
+      },
+      "id": "set2-reminder-fix",
+      "name": "Build Payment Reminder Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1150,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nconst inData = $input.all();\nlet rows = [];\ntry { rows = JSON.parse(fs.readFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/clients-fix.json', 'utf8')); } catch (e) { rows = []; }\nfor (const item of inData) {\n  const d = item.json;\n  const row = {\n    phone: d.phone || '',\n    channel: 'whatsapp',\n    chat_id: d.chat_id || ('whatsapp' === 'whatsapp' ? d.phone || '' : ''),\n    timestamp: d.timestamp || new Date().toISOString(),\n    message: d.message || '',\n    status: d.status || 'sent_link',\n  };\n  rows.push(row);\n}\nfs.writeFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/clients-fix.json', JSON.stringify(rows, null, 2), 'utf8');\nreturn inData;\n"
+      },
+      "id": "c2-Add-WhatsApp-Client-to-Sheets",
+      "name": "Add WhatsApp Client to Sheets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1370,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nfor (const item of $input.all()) {\n  const d = item.json;\n  fs.appendFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/outbox-fix.jsonl', JSON.stringify({\n    kind: 'link_wa', data: d, mock: true, ts: new Date().toISOString(),\n  }) + '\\n', 'utf8');\n}\nreturn $input.all();\n"
+      },
+      "id": "c2-Send-WhatsApp-Payment-Link",
+      "name": "Send WhatsApp Payment Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1590,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nfor (const item of $input.all()) {\n  const d = item.json;\n  fs.appendFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/outbox-fix.jsonl', JSON.stringify({\n    kind: 'reminder_wa', data: d, mock: true, ts: new Date().toISOString(),\n  }) + '\\n', 'utf8');\n}\nreturn $input.all();\n"
+      },
+      "id": "c2-Post-WhatsApp-Payment-Reminder",
+      "name": "Post WhatsApp Payment Reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1150,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK"
+      },
+      "id": "rsp-Acknowledge-WhatsApp-Message",
+      "name": "Acknowledge WhatsApp Message",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1830,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "x-18042-tg-in",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-x-18042-tg-in-post",
+      "name": "x-18042-tg-in",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "mock18042-x-18042-tg-in-post"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nlet chat_id = '';\nlet message = '';\nlet first_name = 'friend';\ntry {\n  const msg = body.message;\n  chat_id = String(msg?.chat?.id || '');\n  message = msg?.text?.toLowerCase().trim() || '';\n  first_name = msg?.chat?.first_name || 'friend';\n} catch(e) {\n  chat_id = '';\n  message = '';\n}\nreturn [{ json: { phone: '', message, channel: 'telegram', chat_id, first_name } }];"
+      },
+      "id": "c2-Extract-Telegram-Message",
+      "name": "Extract Telegram Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.chat_id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "if2-Check-Telegram-Message-Validity",
+      "name": "Check Telegram Message Validity",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        480,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nconst inData = $input.all();\nlet rows = [];\ntry { rows = JSON.parse(fs.readFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/clients-fix.json', 'utf8')); } catch (e) { rows = []; }\nfor (const item of inData) {\n  const d = item.json;\n  const row = {\n    phone: d.phone || '',\n    channel: 'telegram',\n    chat_id: d.chat_id || ('telegram' === 'whatsapp' ? d.phone || '' : ''),\n    timestamp: d.timestamp || new Date().toISOString(),\n    message: d.message || '',\n    status: d.status || 'sent_link',\n  };\n  rows.push(row);\n}\nfs.writeFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/clients-fix.json', JSON.stringify(rows, null, 2), 'utf8');\nreturn inData;\n"
+      },
+      "id": "c2-Add-Telegram-Client-to-Sheets",
+      "name": "Add Telegram Client to Sheets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nfor (const item of $input.all()) {\n  const d = item.json;\n  fs.appendFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/outbox-fix.jsonl', JSON.stringify({\n    kind: 'link_tg', data: d, mock: true, ts: new Date().toISOString(),\n  }) + '\\n', 'utf8');\n}\nreturn $input.all();\n"
+      },
+      "id": "c2-Send-Telegram-Payment-Link",
+      "name": "Send Telegram Payment Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK"
+      },
+      "id": "rsp-Acknowledge-Telegram-Message",
+      "name": "Acknowledge Telegram Message",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1160,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "x-18042-stripe-in",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-x-18042-stripe-in-post",
+      "name": "x-18042-stripe-in",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "mock18042-x-18042-stripe-in-post"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst event = body;\nif (event.type !== 'checkout.session.completed') {\n  return [{ json: { skip: true } }];\n}\nconst session = event.data?.object;\nconst phone = session?.customer_details?.phone || '';\nconst customerName = session?.customer_details?.name || 'customer';\nconst amountPaid = (session?.amount_total || 0) / 100;\nconst currency = session?.currency?.toUpperCase() || 'EUR';\nreturn [{ json: { phone, customerName, amountPaid, currency, skip: !phone } }];"
+      },
+      "id": "c2-Extract-Stripe-Payment-Details",
+      "name": "Extract Stripe Payment Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.skip }}"
+            }
+          ]
+        }
+      },
+      "id": "if2-Check-Payment-Validity",
+      "name": "Check Payment Validity",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        480,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nconst inData = $input.first().json;\nlet rows = [];\ntry { rows = JSON.parse(fs.readFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/clients-fix.json', 'utf8')); } catch (e) { rows = []; }\nconst key = inData.phone;\nconst hit = rows.find(r => r.phone && r.phone === key);\nif (hit) return [{ json: hit }];\nreturn [];\n"
+      },
+      "id": "c2-Retrieve-Client-From-Sheets",
+      "name": "Retrieve Client From Sheets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.channel }}",
+              "value2": "telegram",
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "if2-chan-fixed",
+      "name": "Determine Communication Channel",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nfor (const item of $input.all()) {\n  const d = item.json;\n  fs.appendFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/outbox-fix.jsonl', JSON.stringify({\n    kind: 'deliver_tg', data: d, mock: true, ts: new Date().toISOString(),\n  }) + '\\n', 'utf8');\n}\nreturn $input.all();\n"
+      },
+      "id": "c2-Deliver-PDF-via-Telegram",
+      "name": "Deliver PDF via Telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nfor (const item of $input.all()) {\n  const d = item.json;\n  fs.appendFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/outbox-fix.jsonl', JSON.stringify({\n    kind: 'deliver_wa', data: d, mock: true, ts: new Date().toISOString(),\n  }) + '\\n', 'utf8');\n}\nreturn $input.all();\n"
+      },
+      "id": "c2-Deliver-PDF-via-WhatsApp",
+      "name": "Deliver PDF via WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst fs = require('fs');\nfor (const item of $input.all()) {\n  const d = item.json;\n  fs.appendFileSync('C:/Users/Administrator/.easyclaw/workspace/n8n-lesson-crew/state/18042-data/outbox-fix.jsonl', JSON.stringify({\n    kind: 'fallback', data: d, mock: true, ts: new Date().toISOString(),\n  }) + '\\n', 'utf8');\n}\nreturn $input.all();\n"
+      },
+      "id": "c2-Send-Fallback-Notification",
+      "name": "Send Fallback Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK"
+      },
+      "id": "rsp-Acknowledge-Stripe-Payment",
+      "name": "Acknowledge Stripe Payment",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "x-18042-reminder",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-x-18042-reminder-get",
+      "name": "x-18042-reminder",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "mock18042-x-18042-reminder-get"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}"
+      },
+      "id": "rsp-Acknowledge-Reminder-Trigger",
+      "name": "Acknowledge Reminder Trigger",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        780
+      ]
+    }
+  ],
+  "connections": {
+    "x-18042-wa-in": {
+      "main": [
+        [
+          {
+            "node": "Extract WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "Check WhatsApp Message Validity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check WhatsApp Message Validity": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Unpaid Clients",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Retrieve Unpaid Clients": {
+      "main": [
+        [
+          {
+            "node": "Check Payment Status Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Payment Status Pending": {
+      "main": [
+        [
+          {
+            "node": "Build Payment Reminder Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post WhatsApp Payment Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payment Reminder Message": {
+      "main": [
+        [
+          {
+            "node": "Add WhatsApp Client to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add WhatsApp Client to Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Payment Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Payment Link": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post WhatsApp Payment Reminder": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "x-18042-tg-in": {
+      "main": [
+        [
+          {
+            "node": "Extract Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "Check Telegram Message Validity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Telegram Message Validity": {
+      "main": [
+        [
+          {
+            "node": "Add Telegram Client to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Add Telegram Client to Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Payment Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Payment Link": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "x-18042-stripe-in": {
+      "main": [
+        [
+          {
+            "node": "Extract Stripe Payment Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Stripe Payment Details": {
+      "main": [
+        [
+          {
+            "node": "Check Payment Validity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Payment Validity": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Client From Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Fallback Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Client From Sheets": {
+      "main": [
+        [
+          {
+            "node": "Determine Communication Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Communication Channel": {
+      "main": [
+        [
+          {
+            "node": "Deliver PDF via Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Deliver PDF via WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deliver PDF via Telegram": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Stripe Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deliver PDF via WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Stripe Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Fallback Notification": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Stripe Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "x-18042-reminder": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Reminder Trigger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}
