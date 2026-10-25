@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>n8n 实战课 06：收款后自动发货机（模板修复版 + 支付宝当面付）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #0f1b2d; color: #e8eef7; line-height: 1.7; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 80px; }
+  .badge { display: inline-block; background: #b45309; color: #fff; font-size: 13px; padding: 4px 14px; border-radius: 999px; letter-spacing: 1px; }
+  h1 { font-size: 34px; margin: 18px 0 10px; line-height: 1.35; }
+  .sub { color: #93a7c4; font-size: 16px; margin-bottom: 32px; }
+  .card { background: #16263f; border: 1px solid #24405f; border-radius: 14px; padding: 24px 28px; margin-bottom: 22px; }
+  .card h2 { font-size: 20px; color: #fbbf24; margin-bottom: 12px; }
+  .card ul { padding-left: 22px; }
+  .card li { margin: 6px 0; }
+  .flow { background: #0b1524; border-radius: 10px; padding: 18px 20px; font-family: Consolas, monospace; font-size: 14px; color: #9fe6a0; white-space: pre-wrap; }
+  .pill { display: inline-block; background: #0b1524; border: 1px solid #2c4a70; border-radius: 8px; padding: 2px 10px; font-size: 13px; color: #ffd479; margin: 2px 4px 2px 0; }
+  .kpis { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+  .kpi { flex: 1; min-width: 140px; background: #16263f; border: 1px solid #24405f; border-radius: 12px; padding: 16px; text-align: center; }
+  .kpi b { display: block; font-size: 26px; color: #fbbf24; }
+  .kpi span { font-size: 13px; color: #93a7c4; }
+  a.btn { display: inline-block; background: #b45309; color: #fff; text-decoration: none; padding: 12px 26px; border-radius: 10px; font-size: 16px; margin-top: 8px; }
+  a.btn:hover { background: #d97706; }
+  .foot { color: #5c7292; font-size: 13px; margin-top: 36px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="badge">n8n 实战课 06</span>
+  <h1>收款后自动发货机<br>Stripe→WhatsApp/Telegram 模板修复版</h1>
+  <p class="sub">官方模板 18042 · 6 坑实锤全修 · 支付宝当面付本地方案 · 双跑对照 15/15 全绿</p>
+
+  <div class="kpis">
+    <div class="kpi"><b>9</b><span>功能节点吃透</span></div>
+    <div class="kpi"><b>42/42</b><span>两层断言全过</span></div>
+    <div class="kpi"><b>6 坑</b><span>实锤+修复方案</span></div>
+    <div class="kpi"><b>0 元</b><span>全套免费替身</span></div>
+  </div>
+
+  <div class="card">
+    <h2>这条流水线干什么</h2>
+    <div class="flow">客户 WhatsApp/Telegram 咨询
+  → 登记客户台账 → 原渠道回发付款链接
+客户付款成功
+  → 支付平台 webhook → 校验有效性 → 按手机号查台账
+  → 识别来源渠道 → 原渠道秒发数字产品下载链接
+未付款客户 → 定时催单
+无效付款 → 人工处理通知（绝不静默）</div>
+  </div>
+
+  <div class="card">
+    <h2>你会学到</h2>
+    <ul>
+      <li>「IM 咨询 → 台账 → 付款链接 → 支付 webhook → 原路交付」标准骨架</li>
+      <li>6 个实锤坑逐一断言复现（双跑对照：忠实版死给你看，修复版全绿）</li>
+      <li>凭证替身全家桶：WhatsApp→mock、Sheets→本地 JSON、Stripe→mock payload</li>
+      <li>支付宝当面付本地方案：个体工商户可签、RSA2 加签、notify_url 回调接入</li>
+      <li>生产加固清单：验签、幂等、断链感知、对账</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>六大实锤坑（课程里给修复版）</h2>
+    <span class="pill">坑1 连线接反·交付逻辑整体反转</span>
+    <span class="pill">坑2 查无买家·静默断链零告警</span>
+    <span class="pill">坑3 lookupValue 多余 == 失配</span>
+    <span class="pill">坑4 无验签·伪造付款白嫖发货</span>
+    <span class="pill">坑5 phone 单字段脆弱匹配</span>
+    <span class="pill">坑6 双 webhook 同 path 混用</span>
+  </div>
+
+  <div class="card">
+    <h2>双跑对照（2026-10-25 实跑）</h2>
+    <ul>
+      <li><b>忠实版（含 bug）</b>：WA 新客静默丢单、有效付款进了 Fallback——outbox 仅 <code>[link_tg, fallback]</code></li>
+      <li><b>修复版</b>：7 场景端到端全绿——outbox <code>[link_wa, reminder_wa, link_tg, deliver_wa, fallback]</code></li>
+      <li>A 关单元级 27/27 + B 关全链 15/15，驱动脚本随课开源可一键重跑</li>
+    </ul>
+  </div>
+
+  <div class="card" style="text-align:center;">
+    <h2>完整课程包（开源）</h2>
+    <p class="sub">模板原样 + 修复版工作流 · 7 篇文档 · 3 道练习 · 获客脚本</p>
+    <a class="btn" href="https://github.com/xinchun575924529/n8n-lesson-06-payment-auto-delivery">打开 GitHub 课程库</a>
+  </div>
+
+  <p class="foot">n8n 教案制作组 · 模板来源 n8n.io/workflows/18042 · 验证：A 单元 27/27 · B 双跑 15/15</p>
+</div>
+</body>
+</html>
